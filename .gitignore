@@ -1,0 +1,13 @@
+build/
+*.o
+*.a
+*.so
+*.dylib
+cmake-build-*
+._*
+.DS_Store
+*.exe
+build/
+*.o
+*.a
+*.exe

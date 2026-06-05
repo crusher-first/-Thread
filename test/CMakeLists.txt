@@ -1,0 +1,5 @@
+find_package(GTest CONFIG REQUIRED)
+add_executable(test_task_scheduler test_task_scheduler.cpp)
+target_link_libraries(test_task_scheduler PRIVATE GTest::gtest_main task_scheduler)
+include(GoogleTest)
+gtest_discover_tests(test_task_scheduler)

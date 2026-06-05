@@ -44,7 +44,7 @@ void TaskScheduler::shutdown() noexcept {
             if (task.func) {
                 // Run directly — scheduler is shutting down so run inline
                 try { task.func(); } catch (const std::exception&) {}
-                stats_.add_completed();
+                // stats_.add_completed() already inside func wrapper
             }
         }
     }
@@ -56,6 +56,20 @@ void TaskScheduler::shutdown() noexcept {
     if (key_thread_.joinable())   key_thread_.join();
     for (auto& t : workers_) {
         if (t.joinable()) t.join();
+    }
+
+    // Drain remaining serial tasks (submitted before shutdown, not yet processed)
+    {
+        std::lock_guard<std::mutex> lock(key_mtx_);
+        for (auto& [key, shard] : key_shards_) {
+            std::function<void()> f;
+            while (shard->dequeue(f)) {
+                if (f) {
+                    try { f(); } catch (const std::exception&) {}
+                    stats_.sub_queued_and_serial_completed();
+                }
+            }
+        }
     }
 }
 

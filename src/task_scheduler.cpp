@@ -92,8 +92,14 @@ void TaskScheduler::timer_loop() {
         auto now = std::chrono::steady_clock::now();
         auto top_time = delay_heap_.top().run_time;
         if (top_time > now) {
-            delay_cv_.wait_for(lock, top_time - now, [this] {
-                return stopping_.load(std::memory_order_acquire) || !delay_heap_.empty();
+            // Sleep until the earliest task is ready. The predicate must only
+            // return true when there is actual work to do (top task's run_time
+            // has arrived) or we are stopping — otherwise wait_for returns
+            // immediately because the heap is non-empty, causing a busy-loop.
+            delay_cv_.wait_until(lock, top_time, [this] {
+                if (stopping_.load(std::memory_order_acquire)) return true;
+                if (delay_heap_.empty()) return true;
+                return delay_heap_.top().run_time <= std::chrono::steady_clock::now();
             });
             if (stopping_.load(std::memory_order_acquire)) break;
             continue;
